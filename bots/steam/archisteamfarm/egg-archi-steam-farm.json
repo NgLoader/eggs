@@ -1,0 +1,72 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-07-11T11:47:43+02:00",
+    "name": "ArchiSteamFarm",
+    "author": "mail@wuffy.eu",
+    "description": "ASF is a C# application with primary purpose of idling Steam cards from multiple accounts simultaneously. Unlike Idle Master which works only for one account at given time, while requiring Steam client running in the background and launching additional processes imitating \"game playing\" status, ASF doesn't require any Steam client running in the background, doesn't launch any additional processes and is made to handle unlimited Steam accounts at once. In addition to that, it's meant to be run on servers or other desktop-less machines, and features full cross-OS support, which makes it possible to launch on any operating system with .NET Core runtime, such as Windows, Linux and OS X. ASF is possible thanks to gigantic amount of work done in marvelous SteamKit2 library.",
+    "features": null,
+    "docker_images": {
+        "quay.io\/parkervcp\/pterodactyl-images:debian_dotnet": "quay.io\/parkervcp\/pterodactyl-images:debian_dotnet"
+    },
+    "file_denylist": [],
+    "startup": ".\/ArchiSteamFarm-Service.sh --no-restart --process-required --system-required",
+    "config": {
+        "files": "{\r\n    \"config\/IPC.config\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"Kestrel.Endpoints.Http.Url\": \"http:\/\/0.0.0.0:{{server.build.default.port}}\"\r\n        }\r\n    },\r\n    \"config\/ASF.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"IPCPassword\": \"{{server.build.env.ASF_IPC_PASSWORD}}\",\r\n            \"SteamOwnerID\": \"{{server.build.env.ASF_STEAM_OWNER_ID}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": \"Start() IPC server ready!\"\r\n}",
+        "logs": "{\r\n    \"custom\": true\r\n}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "apt update -y\r\napt -y --no-install-recommends install curl jq ca-certificates unzip\r\n# Setup default variables\r\nGITHUB_PACKAGE=\"JustArchiNET\/ArchiSteamFarm\"\r\nMATCH=\"ASF-linux-x64.zip\"\r\n# Deleting old tmp\r\nTMP_DIRECTORY=$(echo $DOTNET_BUNDLE_EXTRACT_BASE_DIR | sed \"s|home\/container|mnt\/server|\")\r\necho -e \"Checking $TMP_DIRECTORY\"\r\ncd \/\r\nif [ -d $TMP_DIRECTORY ]; then\r\necho -e \"Deleting $TMP_DIRECTORY folder\"\r\nrm -r $TMP_DIRECTORY\r\nfi\r\nif [ -z \"${GITHUB_USER}\" ] && [ -z \"${GITHUB_OAUTH_TOKEN}\" ] ; then\r\necho -e \"using anon api call\"\r\nelse\r\necho -e \"user and oauth token set\"\r\nalias curl='curl -u ${GITHUB_USER}:${GITHUB_OAUTH_TOKEN} '\r\nfi\r\n## get release info and download links\r\nLATEST_JSON=$(curl --silent \"https:\/\/api.github.com\/repos\/${GITHUB_PACKAGE}\/releases\/latest\")\r\nRELEASES=$(curl --silent \"https:\/\/api.github.com\/repos\/${GITHUB_PACKAGE}\/releases\")\r\nif [ -z \"${VERSION}\" ] || [ \"${VERSION}\" == \"latest\" ]; then\r\nDOWNLOAD_URL=$(echo ${LATEST_JSON} | jq .assets | jq -r .[].browser_download_url | grep -i ${MATCH})\r\nelse\r\nVERSION_CHECK=$(echo ${RELEASES} | jq -r --arg VERSION \"${VERSION}\" '.[] | select(.tag_name==$VERSION) | .tag_name')\r\nif [ \"${VERSION}\" == \"${VERSION_CHECK}\" ]; then\r\nDOWNLOAD_URL=$(echo ${RELEASES} | jq -r --arg VERSION \"${VERSION}\" '.[] | select(.tag_name==$VERSION) | .assets[].browser_download_url' | grep -i ${MATCH})\r\nelse\r\necho -e \"defaulting to latest release\"\r\nDOWNLOAD_URL=$(echo ${LATEST_JSON} | jq .assets | jq -r .[].browser_download_url)\r\nfi\r\nfi\r\n# Downloading\r\necho -e \"Downloading\"\r\ncd \/tmp\r\ncurl -LJO ${DOWNLOAD_URL}\r\nunzip -d \/mnt\/server -o ASF-linux-x64.zip\r\n# Permission\r\ncd \/mnt\/server\r\nchmod +x ArchiSteamFarm\r\nchmod +x ArchiSteamFarm-Service.sh\r\n# Creating default configs\r\nif [ ! -f \/mnt\/server\/config\/ASF.json ]; then\r\necho -e \"Creating config\/ASF.json\"\r\ncat << EOF > \/mnt\/server\/config\/ASF.json\r\n{\r\n\"IPCPassword\": \"$ASF_IPC_PASSWORD\",\r\n\"SteamOwnerID\": \"$ASF_STEAM_OWNER_ID\"\r\n}\r\nEOF\r\nfi\r\nif [ ! -f \/mnt\/server\/config\/IPC.config ]; then\r\necho -e \"Creating config\/IPC.config\"\r\ncat << EOF > \/mnt\/server\/config\/IPC.config\r\n{\r\n\"Kestrel\": {\r\n\"Endpoints\": {\r\n\"Http\": {\r\n\"Url\": \"http:\/\/0.0.0.0:1242\"\r\n}\r\n}\r\n}\r\n}\r\nEOF\r\nfi\r\necho -e \"Setup finished\"",
+            "container": "ubuntu:16.04",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Steam Owner ID",
+            "description": "Paste here your SteamID64\r\nYou can finde your SteamID64 here https:\/\/steamrep.com",
+            "env_variable": "ASF_STEAM_OWNER_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|numeric|digits:17",
+            "field_type": "text"
+        },
+        {
+            "name": "Webpanel Password",
+            "description": "Webpanel password",
+            "env_variable": "ASF_IPC_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Tmp Folder",
+            "description": "",
+            "env_variable": "DOTNET_BUNDLE_EXTRACT_BASE_DIR",
+            "default_value": "\/home\/container\/.tmp",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "Version",
+            "description": "",
+            "env_variable": "VERSION",
+            "default_value": "latest",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        }
+    ]
+}
